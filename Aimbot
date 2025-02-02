@@ -1,0 +1,336 @@
+local UILibrary = loadstring(game:HttpGet('https://pastebin.com/raw/LqTuPsv1'))()
+local gui = UILibrary.CreateGUI()
+UILibrary.UpdateTitleAndDescription("Silent Aimbot v4", "By CapybaraScript")
+local myLabel = UILibrary.CreateLabel(gui.ScrollFrame, "update - i optimize the entire script ")
+local Camera = workspace.CurrentCamera
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local plr = Players.LocalPlayer
+
+local aimbot = {
+    smoothness = 0.2,
+    teamCheck = false,
+    wallCheck = true,
+    aimDistance = 100,
+    aimPart = "Head",
+    ringSize = 120,
+    cameraLock = false,
+    ringColor = Color3.fromRGB(0, 0, 255),
+    checkAlive = true,
+    isActive = false,
+    lockedPlayer = nil,
+    prediction = false,
+    predictionTime = { horizontal = 0.08, vertical = 0.02 },
+    predictionOffset = false,
+    offset = { horizontal = 0.5, vertical = 0.3 }
+}
+
+local ring = Drawing.new("Circle")
+ring.Radius, ring.Thickness, ring.Color, ring.Filled, ring.Visible = aimbot.ringSize, 2, aimbot.ringColor, false, false
+ring.Position = Camera.ViewportSize / 2
+
+Camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+    ring.Position = Camera.ViewportSize / 2
+end)
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name, screenGui.Parent = "mygui", game:GetService("CoreGui")
+
+local button = Instance.new("TextButton")
+button.Name, button.Size, button.Position, button.Text, button.Font, button.TextSize, button.TextColor3, button.BackgroundColor3, button.BackgroundTransparency, button.Draggable, button.BorderSizePixel, button.Parent = 
+    "Button", UDim2.new(0, 100, 0, 50), UDim2.new(1, -110, 0, 10), "OFF", Enum.Font.Gotham, 14, Color3.fromRGB(255, 255, 255), Color3.fromRGB(30, 30, 30), 0.6, true, 0, screenGui
+
+local function toggleButton()
+    aimbot.isActive = not aimbot.isActive
+    button.Text = aimbot.isActive and "ON" or "OFF"
+    button.BackgroundColor3 = aimbot.isActive and Color3.fromRGB(173, 216, 230) or Color3.fromRGB(255, 0, 0)
+    ring.Visible = aimbot.isActive
+    if not aimbot.isActive then aimbot.lockedPlayer = nil end
+end
+
+button.MouseButton1Click:Connect(toggleButton)
+
+local function isPointInRing(pos)
+    return (pos - ring.Position).Magnitude <= (ring.Radius + 10)
+end
+
+local function isWallBetween(a, b)
+    if not aimbot.wallCheck then return false end
+    local ray = Ray.new(a, (b - a).Unit * (b - a).Magnitude)
+    local hit = workspace:FindPartOnRay(ray, plr.Character)
+    return hit and hit.CanCollide
+end
+
+local function findClosestPlayer()
+    local closestPlayer, closestDistance = nil, math.huge
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= plr and player.Character then
+            if aimbot.teamCheck and player.Team == plr.Team then continue end
+            local humanoid = player.Character:FindFirstChild("Humanoid")
+            if aimbot.checkAlive and (not humanoid or humanoid.Health <= 0) then continue end
+            
+            local targetPart = player.Character:FindFirstChild(aimbot.aimPart) or player.Character:FindFirstChild("Torso")
+            if targetPart then
+                local screenPos = Camera:WorldToViewportPoint(targetPart.Position)
+                if screenPos.Z > 0 and isPointInRing(Vector2.new(screenPos.X, screenPos.Y)) then
+                    local distance = (targetPart.Position - plr.Character.HumanoidRootPart.Position).Magnitude
+                    if distance <= aimbot.aimDistance and distance < closestDistance then
+                        closestPlayer, closestDistance = player, distance
+                    end
+                end
+            end
+        end
+    end
+    return closestPlayer
+end
+
+local function predictPosition(player, targetPart)
+    if not aimbot.prediction then return targetPart.Position end
+    local velocity = player.Character.HumanoidRootPart.AssemblyLinearVelocity
+    local predicted = targetPart.Position + (velocity * aimbot.predictionTime.horizontal)
+    predicted = predicted + Vector3.new(0, velocity.Y * aimbot.predictionTime.vertical, 0)
+    if aimbot.predictionOffset then
+        predicted = predicted + Vector3.new(aimbot.offset.horizontal, aimbot.offset.vertical, 0)
+    end
+    return predicted
+end
+
+local function focusOnPlayer()
+    if not aimbot.isActive then return end
+    
+    if not aimbot.lockedPlayer or not aimbot.lockedPlayer.Character then
+        aimbot.lockedPlayer = findClosestPlayer()
+    end
+
+    if aimbot.lockedPlayer and aimbot.lockedPlayer.Character then
+        local targetPart = aimbot.lockedPlayer.Character:FindFirstChild(aimbot.aimPart) or aimbot.lockedPlayer.Character:FindFirstChild("Torso")
+        if targetPart then
+            local predictedPos = predictPosition(aimbot.lockedPlayer, targetPart)
+            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, predictedPos), aimbot.smoothness)
+        end
+    end
+end
+
+RunService.RenderStepped:Connect(focusOnPlayer)
+
+UILibrary.CreateDropdown(gui.ScrollFrame, { "Head", "HumanoidRootPart", "LeftHand", "RightHand", "LeftLeg", "RightLeg" }, "Head", function(selected)
+    aimbot.aimPart = selected
+end)
+
+UILibrary.CreateTextbox(gui.ScrollFrame, "Fov", 120, function(value)
+    ring.Radius = tonumber(value)
+end)
+
+UILibrary.CreateTextbox(gui.ScrollFrame, "Aim Distance", 100, function(value)
+    aimbot.aimDistance = tonumber(value)
+end)
+
+UILibrary.CreateToggleButton(gui.ScrollFrame, "Team Check", false, function(state)
+    aimbot.teamCheck = state
+end)
+
+UILibrary.CreateTextbox(gui.ScrollFrame, "Smoothness", 0.2, function(value)
+    aimbot.smoothness = tonumber(value)
+end)
+
+UILibrary.CreateTextbox(gui.ScrollFrame, "Prediction Time Horizontal", 0.08, function(value)
+    aimbot.predictionTime.horizontal = tonumber(value)
+end)
+
+UILibrary.CreateTextbox(gui.ScrollFrame, "Prediction Time Vertical", 0.02, function(value)
+    aimbot.predictionTime.vertical = tonumber(value)
+end)
+
+UILibrary.CreateTextbox(gui.ScrollFrame, "Offset Prediction Horizontal", 0.5, function(value)
+    aimbot.offset.horizontal = tonumber(value)
+end)
+
+UILibrary.CreateTextbox(gui.ScrollFrame, "Offset Prediction Vertical", 0.3, function(value)
+    aimbot.offset.vertical = tonumber(value)
+end)
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local plr = Players.LocalPlayer
+
+local highlight = Instance.new("Highlight")
+highlight.Name, highlight.DepthMode = "Highlight", Enum.HighlightDepthMode.AlwaysOnTop
+highlight.FillColor, highlight.OutlineColor = Color3.fromRGB(0,255,255), Color3.fromRGB(255,255,255)
+highlight.FillTransparency, highlight.OutlineTransparency = 0.7, 0
+
+local esp, teamCheck = false, false
+
+local function Cleanup()
+    for _, p in pairs(Players:GetPlayers()) do
+        if p.Character then
+            local root = p.Character:FindFirstChild("HumanoidRootPart")
+            if root then
+                for _, obj in pairs(root:GetChildren()) do
+                    if obj:IsA("Highlight") then
+                        obj:Destroy()
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function GetColor(p)
+    return p.Team and p.Team.TeamColor.Color or highlight.FillColor
+end
+
+local function UpdateHighlight(c, p)
+    local root = c:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    local h = root:FindFirstChildOfClass("Highlight")
+    local color = teamCheck and GetColor(p) or highlight.FillColor
+    
+    if h then
+        h.FillColor = color
+    elseif esp and c.Humanoid.Health > 0 then
+        h = highlight:Clone()
+        h.FillColor, h.Adornee, h.Parent = color, c, root
+    end
+end
+
+local function UpdatePlayer(p)
+    if not esp or p == plr then return end
+    local c = p.Character
+    if c and c:FindFirstChild("Humanoid") then
+        UpdateHighlight(c, p)
+    end
+end
+
+local function TrackPlayer(p)
+    local function TrackCharacter(c)
+        local h = c:WaitForChild("Humanoid")
+        h:GetPropertyChangedSignal("Health"):Connect(function()
+            UpdatePlayer(p)
+        end)
+        UpdatePlayer(p)
+    end
+    
+    p.CharacterAdded:Connect(TrackCharacter)
+    if p.Character then TrackCharacter(p.Character) end
+    
+    if p:FindFirstChild("Team") then
+        p.Team:GetPropertyChangedSignal("TeamColor"):Connect(function()
+            if esp then UpdatePlayer(p) end
+        end)
+    end
+end
+
+Players.PlayerAdded:Connect(TrackPlayer)
+Players.PlayerRemoving:Connect(function(p)
+    if p.Character then
+        local root = p.Character:FindFirstChild("HumanoidRootPart")
+        if root then root:FindFirstChildOfClass("Highlight"):Destroy() end
+    end
+end)
+
+for _,p in pairs(Players:GetPlayers()) do TrackPlayer(p) end
+
+RunService.Heartbeat:Connect(function()
+    if esp then for _,p in pairs(Players:GetPlayers()) do UpdatePlayer(p) end end
+end)
+
+UILibrary.CreateToggleButton(gui.ScrollFrame, "Esp toggle", false, function(s)
+    esp = not esp
+    Cleanup()
+    if esp then for _,p in pairs(Players:GetPlayers()) do UpdatePlayer(p) end end
+end)
+
+UILibrary.CreateToggleButton(gui.ScrollFrame, "Esp team check", false, function(s)
+    teamCheck = not teamCheck
+    if esp then for _,p in pairs(Players:GetPlayers()) do UpdatePlayer(p) end end
+end)
+
+UILibrary.CreateToggleButton(gui.ScrollFrame, "Wall Check", aimbot.wallCheck, function(state)
+    aimbot.wallCheck = state
+end)
+
+UILibrary.CreateToggleButton(gui.ScrollFrame, "Camera Lock", aimbot.cameraLock, function(state)
+    aimbot.cameraLock = state
+    if not state then aimbot.lockedPlayer = nil end
+end)
+
+UILibrary.CreateToggleButton(gui.ScrollFrame, "Check Alive", aimbot.checkAlive, function(state)
+    aimbot.checkAlive = state
+end)
+
+UILibrary.CreateToggleButton(gui.ScrollFrame, "Prediction", aimbot.prediction, function(state)
+    aimbot.prediction = state
+end)
+
+UILibrary.CreateToggleButton(gui.ScrollFrame, "Offset Prediction", aimbot.predictionOffset, function(state)
+    aimbot.predictionOffset = state
+end)
+
+UILibrary.CreateColorPicker(gui.ScrollFrame, "Ring Color", aimbot.ringColor, function(color)
+    ring.Color = color
+end)
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local plr = Players.LocalPlayer
+
+local hitbox = {
+    size = 10,
+    original = 10,
+    disabled = true,
+    collision = false,
+    transparency = 0.9,
+    material = Enum.Material.SmoothPlastic,
+    color = Color3.fromRGB(169, 169, 169),
+    border = Color3.fromRGB(173, 216, 230)
+}
+
+local function UpdateHitbox(v)
+    if v == plr then return end
+    pcall(function()
+        local root = v.Character and v.Character:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+        
+        if hitbox.disabled then
+            root.Size = Vector3.new(2, 2, 2)
+        else
+            root.Size = Vector3.new(hitbox.size, hitbox.size, hitbox.size)
+            root.Transparency = hitbox.transparency
+            root.Material = hitbox.material
+            root.CanCollide = hitbox.collision
+        end
+
+        local box = root:FindFirstChild("HitboxBorder") or Instance.new("SelectionBox")
+        box.Name, box.Adornee, box.Parent = "HitboxBorder", root, root
+        box.LineThickness, box.Color3 = 0.05, hitbox.border
+        box.SurfaceTransparency = hitbox.disabled and 1 or hitbox.transparency
+        box.Transparency = hitbox.disabled and 1 or 0
+    end)
+end
+
+RunService.Heartbeat:Connect(function()
+    for _,v in pairs(Players:GetPlayers()) do UpdateHitbox(v) end
+end)
+
+UILibrary.CreateToggleButton(gui.ScrollFrame, "Hitbox Expander", false, function(s)
+    hitbox.disabled = not s
+    hitbox.size = hitbox.disabled and 2 or hitbox.original
+end)
+
+UILibrary.CreateTextbox(gui.ScrollFrame, "Hitbox Size", tostring(hitbox.size), function(v)
+    hitbox.original = tonumber(v)
+    if not hitbox.disabled then hitbox.size = tonumber(v) end
+end)
+
+UILibrary.CreateTextbox(gui.ScrollFrame, "Hitbox Transparency", tostring(hitbox.transparency), function(v)
+    hitbox.transparency = tonumber(v)
+end)
+
+UILibrary.CreateColorPicker(gui.ScrollFrame, "Hitbox Color", hitbox.color, function(c)
+    hitbox.color, hitbox.border = c, c
+end)
+
+UILibrary.CreateToggleButton(gui.ScrollFrame, "Hitbox Collision", false, function(s)
+    hitbox.collision = s
+end)
