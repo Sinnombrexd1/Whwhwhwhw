@@ -1,7 +1,7 @@
 local UILibrary = loadstring(game:HttpGet('https://pastebin.com/raw/LqTuPsv1'))()
 local gui = UILibrary.CreateGUI()
-UILibrary.UpdateTitleAndDescription("Silent Aimbot v4", "By CapybaraScript")
-local myLabel = UILibrary.CreateLabel(gui.ScrollFrame, "update - i optimize the entire script ")
+UILibrary.UpdateTitleAndDescription("Silent Aimbot v3", "By CapybaraScript")
+
 local Camera = workspace.CurrentCamera
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -98,14 +98,19 @@ end
 local function focusOnPlayer()
     if not aimbot.isActive then return end
     
-    if not aimbot.lockedPlayer or not aimbot.lockedPlayer.Character then
-        aimbot.lockedPlayer = findClosestPlayer()
+    if aimbot.cameraLock then
+        if not aimbot.lockedPlayer or not aimbot.lockedPlayer.Character then
+            aimbot.lockedPlayer = findClosestPlayer()
+        end
+    else
+        aimbot.lockedPlayer = nil
     end
 
-    if aimbot.lockedPlayer and aimbot.lockedPlayer.Character then
-        local targetPart = aimbot.lockedPlayer.Character:FindFirstChild(aimbot.aimPart) or aimbot.lockedPlayer.Character:FindFirstChild("Torso")
+    local targetPlayer = aimbot.cameraLock and aimbot.lockedPlayer or findClosestPlayer()
+    if targetPlayer and targetPlayer.Character then
+        local targetPart = targetPlayer.Character:FindFirstChild(aimbot.aimPart) or targetPlayer.Character:FindFirstChild("Torso")
         if targetPart then
-            local predictedPos = predictPosition(aimbot.lockedPlayer, targetPart)
+            local predictedPos = predictPosition(targetPlayer, targetPart)
             Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, predictedPos), aimbot.smoothness)
         end
     end
@@ -147,103 +152,6 @@ end)
 
 UILibrary.CreateTextbox(gui.ScrollFrame, "Offset Prediction Vertical", 0.3, function(value)
     aimbot.offset.vertical = tonumber(value)
-end)
-
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local plr = Players.LocalPlayer
-
-local highlight = Instance.new("Highlight")
-highlight.Name, highlight.DepthMode = "Highlight", Enum.HighlightDepthMode.AlwaysOnTop
-highlight.FillColor, highlight.OutlineColor = Color3.fromRGB(0,255,255), Color3.fromRGB(255,255,255)
-highlight.FillTransparency, highlight.OutlineTransparency = 0.7, 0
-
-local esp, teamCheck = false, false
-
-local function Cleanup()
-    for _, p in pairs(Players:GetPlayers()) do
-        if p.Character then
-            local root = p.Character:FindFirstChild("HumanoidRootPart")
-            if root then
-                for _, obj in pairs(root:GetChildren()) do
-                    if obj:IsA("Highlight") then
-                        obj:Destroy()
-                    end
-                end
-            end
-        end
-    end
-end
-
-local function GetColor(p)
-    return p.Team and p.Team.TeamColor.Color or highlight.FillColor
-end
-
-local function UpdateHighlight(c, p)
-    local root = c:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-    
-    local h = root:FindFirstChildOfClass("Highlight")
-    local color = teamCheck and GetColor(p) or highlight.FillColor
-    
-    if h then
-        h.FillColor = color
-    elseif esp and c.Humanoid.Health > 0 then
-        h = highlight:Clone()
-        h.FillColor, h.Adornee, h.Parent = color, c, root
-    end
-end
-
-local function UpdatePlayer(p)
-    if not esp or p == plr then return end
-    local c = p.Character
-    if c and c:FindFirstChild("Humanoid") then
-        UpdateHighlight(c, p)
-    end
-end
-
-local function TrackPlayer(p)
-    local function TrackCharacter(c)
-        local h = c:WaitForChild("Humanoid")
-        h:GetPropertyChangedSignal("Health"):Connect(function()
-            UpdatePlayer(p)
-        end)
-        UpdatePlayer(p)
-    end
-    
-    p.CharacterAdded:Connect(TrackCharacter)
-    if p.Character then TrackCharacter(p.Character) end
-    
-    if p:FindFirstChild("Team") then
-        p.Team:GetPropertyChangedSignal("TeamColor"):Connect(function()
-            if esp then UpdatePlayer(p) end
-        end)
-    end
-end
-
-Players.PlayerAdded:Connect(TrackPlayer)
-Players.PlayerRemoving:Connect(function(p)
-    if p.Character then
-        local root = p.Character:FindFirstChild("HumanoidRootPart")
-        if root then root:FindFirstChildOfClass("Highlight"):Destroy() end
-    end
-end)
-
-for _,p in pairs(Players:GetPlayers()) do TrackPlayer(p) end
-
-RunService.Heartbeat:Connect(function()
-    if esp then for _,p in pairs(Players:GetPlayers()) do UpdatePlayer(p) end end
-end)
-
-UILibrary.CreateToggleButton(gui.ScrollFrame, "Esp toggle", false, function(s)
-    esp = not esp
-    Cleanup()
-    if esp then for _,p in pairs(Players:GetPlayers()) do UpdatePlayer(p) end end
-end)
-
-UILibrary.CreateToggleButton(gui.ScrollFrame, "Esp team check", false, function(s)
-    teamCheck = not teamCheck
-    if esp then for _,p in pairs(Players:GetPlayers()) do UpdatePlayer(p) end end
 end)
 
 UILibrary.CreateToggleButton(gui.ScrollFrame, "Wall Check", aimbot.wallCheck, function(state)
