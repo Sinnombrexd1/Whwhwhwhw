@@ -21,10 +21,10 @@ local checkAlive = true
 local isActive = false
 local lockedPlayer = nil
 local prediction = false
-local predictionTimeHorizontal = 0.08
-local predictionTimeVertical = 0.02
+local predictionTimeHorizontal = 0.10
+local predictionTimeVertical = 0.04
 local predictionOffset = false
-local offsetHorizontal = 0.5
+local offsetHorizontal = 0.4
 local offsetVertical = 0.3
 local ring = Drawing.new("Circle"); ring.Radius = ringSize; ring.Thickness = 2; ring.Color = ringColor; ring.Filled = false; ring.Visible = false
 
@@ -198,6 +198,60 @@ UILibrary.CreateTextbox(gui.ScrollFrame, "Aim Distance", 100, function(value)
     aimDistance = tonumber(value)
 end)
 
+local tpwalking = false
+local distanceMultiplier = 0.2
+local tpwalkThread = nil
+
+local player = game.Players.LocalPlayer
+
+local function tpwalk(character)
+    if tpwalkThread then return end
+
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+
+    tpwalking = true
+    tpwalkThread = task.spawn(function()
+        while tpwalking and character and character.Parent and humanoid and humanoid.Parent do
+            local delta = game:GetService("RunService").Heartbeat:Wait()
+            local moveDirection = humanoid.MoveDirection
+            if moveDirection.Magnitude > 0 then
+                local teleportOffset = moveDirection * (humanoid.WalkSpeed * distanceMultiplier) * delta
+                character:TranslateBy(teleportOffset)
+            end
+        end
+        tpwalkThread = nil
+    end)
+end
+
+local function stopTpWalk()
+    tpwalking = false
+end
+
+local function onCharacterAdded(character)
+    local humanoid = character:WaitForChild("Humanoid")
+    humanoid.Died:Connect(function()
+        tpwalking = false 
+    end)
+
+    task.wait(0.5)
+    if tpwalking then
+        tpwalk(character)
+    end
+end
+
+player.CharacterAdded:Connect(onCharacterAdded)
+
+UILibrary.CreateToggleButton(gui.ScrollFrame, "Tp Walk Toggle", false, function(state)
+    if state then
+        tpwalking = true
+        local character = player.Character or player.CharacterAdded:Wait()
+        tpwalk(character)
+    else
+        stopTpWalk()
+    end
+end)
+
 UILibrary.CreateToggleButton(gui.ScrollFrame, "Team Check", false, function(state)
     teamCheck = state
 end)
@@ -245,17 +299,90 @@ end)
 UILibrary.CreateColorPicker(gui.ScrollFrame, "Ring Color", ringColor, function(color)
     ringColor = color
 end)
-
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local plr = Players.LocalPlayer
+local LocalPlayer = Players.LocalPlayer
 
-local highlight = Instance.new("Highlight")
-highlight.Name, highlight.DepthMode = "Highlight", Enum.HighlightDepthMode.AlwaysOnTop
-highlight.FillColor, highlight.OutlineColor = Color3.fromRGB(0,255,255), Color3.fromRGB(255,255,255)
-highlight.FillTransparency, highlight.OutlineTransparency = 0.7, 0
+local highlightTemplate = Instance.new("Highlight")
+highlightTemplate.Name = "Highlight"
+highlightTemplate.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+highlightTemplate.FillColor = Color3.fromRGB(0, 255, 255)
+highlightTemplate.OutlineColor = Color3.fromRGB(255, 255, 255)
+highlightTemplate.FillTransparency = 0.7
+highlightTemplate.OutlineTransparency = 0
 
-local esp, teamCheck = false, false
+local esp = false  
+
+local function getTeamsWithPlayers()
+    local teams = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p.Team then
+            teams[p.Team] = (teams[p.Team] or 0) + 1
+        end
+    end
+    return teams
+end
+
+local function moreThanOneTeam()
+    local teams = getTeamsWithPlayers()
+    local count = 0
+    for _, numPlayers in pairs(teams) do
+        if numPlayers > 0 then
+            count = count + 1
+        end
+    end
+    return count > 1
+end
+
+local function isValidTarget(p)
+    if p == LocalPlayer then return false end
+    if not p.Character then return false end
+    if moreThanOneTeam() then
+        if p.Team == LocalPlayer.Team then
+            return false
+        end
+    end
+    return true
+end
+
+local function GetColor(p)
+    return p.Team and p.Team.TeamColor.Color or highlightTemplate.FillColor
+end
+
+local function UpdateHighlight(character, player)
+    local root = character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    local h = root:FindFirstChildOfClass("Highlight")
+    local color = GetColor(player)
+
+    if h then
+        h.FillColor = color
+    elseif esp and character:FindFirstChild("Humanoid").Health > 0 then
+        h = highlightTemplate:Clone()
+        h.FillColor = color
+        h.Adornee = character
+        h.Parent = root
+    end
+end
+
+local function UpdatePlayer(p)
+    if not esp then return end
+    if not isValidTarget(p) then
+        if p.Character then
+            local root = p.Character:FindFirstChild("HumanoidRootPart")
+            if root then
+                local h = root:FindFirstChildOfClass("Highlight")
+                if h then h:Destroy() end
+            end
+        end
+        return
+    end
+    local character = p.Character
+    if character and character:FindFirstChild("Humanoid") then
+        UpdateHighlight(character, p)
+    end
+end
 
 local function Cleanup()
     for _, p in pairs(Players:GetPlayers()) do
@@ -272,47 +399,25 @@ local function Cleanup()
     end
 end
 
-local function GetColor(p)
-    return p.Team and p.Team.TeamColor.Color or highlight.FillColor
-end
-
-local function UpdateHighlight(c, p)
-    local root = c:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-    
-    local h = root:FindFirstChildOfClass("Highlight")
-    local color = teamCheck and GetColor(p) or highlight.FillColor
-    
-    if h then
-        h.FillColor = color
-    elseif esp and c.Humanoid.Health > 0 then
-        h = highlight:Clone()
-        h.FillColor, h.Adornee, h.Parent = color, c, root
-    end
-end
-
-local function UpdatePlayer(p)
-    if not esp or p == plr then return end
-    local c = p.Character
-    if c and c:FindFirstChild("Humanoid") then
-        UpdateHighlight(c, p)
-    end
-end
-
 local function TrackPlayer(p)
-    local function TrackCharacter(c)
-        local h = c:WaitForChild("Humanoid")
-        h:GetPropertyChangedSignal("Health"):Connect(function()
+    local function TrackCharacter(character)
+        local humanoid = character:WaitForChild("Humanoid")
+        humanoid:GetPropertyChangedSignal("Health"):Connect(function()
             UpdatePlayer(p)
         end)
         UpdatePlayer(p)
     end
-    
+
     p.CharacterAdded:Connect(TrackCharacter)
-    if p.Character then TrackCharacter(p.Character) end
-    
+    if p.Character then
+        TrackCharacter(p.Character)
+    end
+
     if p:FindFirstChild("Team") then
         p.Team:GetPropertyChangedSignal("TeamColor"):Connect(function()
+            if esp then UpdatePlayer(p) end
+        end)
+        p:GetPropertyChangedSignal("Team"):Connect(function()
             if esp then UpdatePlayer(p) end
         end)
     end
@@ -322,25 +427,33 @@ Players.PlayerAdded:Connect(TrackPlayer)
 Players.PlayerRemoving:Connect(function(p)
     if p.Character then
         local root = p.Character:FindFirstChild("HumanoidRootPart")
-        if root then root:FindFirstChildOfClass("Highlight"):Destroy() end
+        if root then
+            local h = root:FindFirstChildOfClass("Highlight")
+            if h then h:Destroy() end
+        end
     end
 end)
 
-for _,p in pairs(Players:GetPlayers()) do TrackPlayer(p) end
+for _, p in pairs(Players:GetPlayers()) do
+    TrackPlayer(p)
+end
 
 RunService.Heartbeat:Connect(function()
-    if esp then for _,p in pairs(Players:GetPlayers()) do UpdatePlayer(p) end end
+    if esp then
+        for _, p in pairs(Players:GetPlayers()) do
+            UpdatePlayer(p)
+        end
+    end
 end)
 
 UILibrary.CreateToggleButton(gui.ScrollFrame, "Esp toggle", false, function(s)
     esp = not esp
     Cleanup()
-    if esp then for _,p in pairs(Players:GetPlayers()) do UpdatePlayer(p) end end
-end)
-
-UILibrary.CreateToggleButton(gui.ScrollFrame, "Esp team check", false, function(s)
-    teamCheck = not teamCheck
-    if esp then for _,p in pairs(Players:GetPlayers()) do UpdatePlayer(p) end end
+    if esp then
+        for _, p in pairs(Players:GetPlayers()) do
+            UpdatePlayer(p)
+        end
+    end
 end)
 
 local Players = game:GetService("Players")
@@ -349,13 +462,13 @@ local plr = Players.LocalPlayer
 
 local hitbox = {
     size = 10,
-    original = 10,
     disabled = true,
     collision = false,
     transparency = 0.9,
     material = Enum.Material.SmoothPlastic,
     color = Color3.fromRGB(169, 169, 169),
-    border = Color3.fromRGB(173, 216, 230)
+    border = Color3.fromRGB(173, 216, 230),
+    originalSizes = {}
 }
 
 local function UpdateHitbox(v)
@@ -363,9 +476,13 @@ local function UpdateHitbox(v)
     pcall(function()
         local root = v.Character and v.Character:FindFirstChild("HumanoidRootPart")
         if not root then return end
+
+        if not hitbox.originalSizes[v] then
+            hitbox.originalSizes[v] = root.Size
+        end
         
         if hitbox.disabled then
-            root.Size = Vector3.new(2, 2, 2)
+            root.Size = hitbox.originalSizes[v]
         else
             root.Size = Vector3.new(hitbox.size, hitbox.size, hitbox.size)
             root.Transparency = hitbox.transparency
@@ -382,17 +499,16 @@ local function UpdateHitbox(v)
 end
 
 RunService.Heartbeat:Connect(function()
-    for _,v in pairs(Players:GetPlayers()) do UpdateHitbox(v) end
+    for _, v in pairs(Players:GetPlayers()) do UpdateHitbox(v) end
 end)
 
 UILibrary.CreateToggleButton(gui.ScrollFrame, "Hitbox Expander", false, function(s)
     hitbox.disabled = not s
-    hitbox.size = hitbox.disabled and 2 or hitbox.original
+    hitbox.size = hitbox.disabled and 10 or hitbox.size
 end)
 
 UILibrary.CreateTextbox(gui.ScrollFrame, "Hitbox Size", tostring(hitbox.size), function(v)
-    hitbox.original = tonumber(v)
-    if not hitbox.disabled then hitbox.size = tonumber(v) end
+    hitbox.size = tonumber(v)
 end)
 
 UILibrary.CreateTextbox(gui.ScrollFrame, "Hitbox Transparency", tostring(hitbox.transparency), function(v)
@@ -405,4 +521,12 @@ end)
 
 UILibrary.CreateToggleButton(gui.ScrollFrame, "Hitbox Collision", false, function(s)
     hitbox.collision = s
+end)
+
+UILibrary.CreateTextbox(gui.ScrollFrame, "Hitbox Transparency", tostring(hitbox.transparency), function(v)
+    hitbox.transparency = tonumber(v)
+end)
+
+local slider = UILibrary.CreateSlider(gui.ScrollFrame, "Tp Walk Speed", 0, 500, distanceMultiplier * 100, 1, function(value)
+    distanceMultiplier = value / 100
 end)
