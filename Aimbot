@@ -77,15 +77,17 @@ end
 local function isWallBetween(targetPosition, targetCharacter)
     if not wallCheck then return false end
 
-    local cameraPosition = Camera.CFrame.Position
-    local direction = (targetPosition - cameraPosition).Unit
-    local distance = (targetPosition - cameraPosition).Magnitude
-    local ray = Ray.new(cameraPosition, direction * distance)
+    local localPlayerCharacter = Players.LocalPlayer.Character
+    if not localPlayerCharacter then return false end
 
-    local ignoreList = {Players.LocalPlayer.Character, targetCharacter}
-    local hit, position = workspace:FindPartOnRayWithIgnoreList(ray, ignoreList)
+    local part = targetCharacter and targetCharacter:FindFirstChild(aimPart)
+    if not part or not part.Position then return false end
 
-    return hit and hit.CanCollide
+    local ray = Ray.new(Camera.CFrame.Position, part.Position - Camera.CFrame.Position)
+    local hit, _ = workspace:FindPartOnRayWithIgnoreList(ray, {localPlayerCharacter})
+    if hit and not hit:IsDescendantOf(targetCharacter) then return true end
+
+    return false
 end
 
 local function findClosestPlayerInRing()
@@ -95,12 +97,14 @@ local function findClosestPlayerInRing()
 
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= localPlayer and player.Character then
+            -- Aseguramos que no sea el mismo equipo si el teamCheck está activado
             if teamCheck and player.Team == localPlayer.Team then
                 continue
             end
 
             local character = player.Character
             local humanoid = character:FindFirstChild("Humanoid")
+            
             if checkAlive and (not humanoid or humanoid.Health <= 0) then
                 continue
             end
