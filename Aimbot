@@ -3,7 +3,8 @@ game.StarterGui:SetCore("SendNotification", {
     Title = "CapybaraScript", 
     Text = "wait.."
 })
-
+print("¡fuck!")
+print("1/100")
 if not game:IsLoaded() then 
     repeat game.Loaded:Wait() until game:IsLoaded() 
 end
@@ -90,6 +91,8 @@ end
 local ScreenGui = Instance.new("ScreenGui")
 local CapybaraScript = Instance.new("TextButton")
 local ImageLabel = Instance.new("ImageLabel")
+local UICornerButton = Instance.new("UICorner")
+local UICornerImage = Instance.new("UICorner")
 
 ScreenGui.Name = "ScreenGui"
 ScreenGui.Parent = game.CoreGui
@@ -97,20 +100,25 @@ ScreenGui.Parent = game.CoreGui
 CapybaraScript.Name = "CapybaraScript"
 CapybaraScript.Parent = ScreenGui
 CapybaraScript.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-CapybaraScript.Position = UDim2.new(0.120833337, 0, 0.0952890813, 0)
+CapybaraScript.Position = UDim2.new(0.05, 0, 0.095, 0)  -- Movido más a la izquierda
 CapybaraScript.Size = UDim2.new(0, 30, 0, 30)
 CapybaraScript.Font = Enum.Font.Code
 CapybaraScript.Text = ""
 CapybaraScript.TextColor3 = Color3.fromRGB(0, 45, 255)
 CapybaraScript.TextScaled = true
-addCorner(CapybaraScript, 10)
 CapybaraScript.Draggable = true
+
+UICornerButton.CornerRadius = UDim.new(1, 0)  -- Forma de círculo
+UICornerButton.Parent = CapybaraScript
 
 ImageLabel.Parent = CapybaraScript
 ImageLabel.Size = UDim2.new(1, 0, 1, 0)
 ImageLabel.Image = "rbxassetid://127836518588584"
 
-CapybaraScript.MouseButton1Down:connect(function()
+UICornerImage.CornerRadius = UDim.new(1, 0)  -- Forma de círculo
+UICornerImage.Parent = ImageLabel
+
+CapybaraScript.MouseButton1Down:Connect(function()
     game:GetService("VirtualInputManager"):SendKeyEvent(true, 305, false, game)
     game:GetService("VirtualInputManager"):SendKeyEvent(false, 305, false, game)
 end)
@@ -316,7 +324,7 @@ description.Position = UDim2.new(0.113333493, 150, 0, 10)
 			end
 		end
 	end)
- 
+ print("2/100")
 local uitab = {}
  
 function uitab:AddTab(text, image)
@@ -430,7 +438,7 @@ function uitab:AddTab(text, image)
     end)
               
 local main = {}
-              
+         print("3/100")     
 function main:AddButton(text, callback)
     local Button = Instance.new("TextButton")
     Button.Name = "Button"
@@ -536,7 +544,7 @@ function main:AddColorPicker(labelText, defaultColor, callback)
     local confirmButton = Instance.new("TextButton")
     confirmButton.Size = UDim2.new(0.5, -5, 0, 30)
     confirmButton.Position = UDim2.new(0, 5, 1, -40)
-    confirmButton.Text = "Confirmar"
+    confirmButton.Text = "Confirm"
     confirmButton.Font = Enum.Font.Gotham
     confirmButton.TextSize = 14
     confirmButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -548,7 +556,7 @@ function main:AddColorPicker(labelText, defaultColor, callback)
     local rainbowButton = Instance.new("TextButton")
     rainbowButton.Size = UDim2.new(0.5, -5, 0, 30)
     rainbowButton.Position = UDim2.new(0.5, 0, 1, -40)
-    rainbowButton.Text = "Arcoíris"
+    rainbowButton.Text = "Rainbow"
     rainbowButton.Font = Enum.Font.Gotham
     rainbowButton.TextSize = 14
     rainbowButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -571,7 +579,6 @@ function main:AddColorPicker(labelText, defaultColor, callback)
         colorSelector.Position = UDim2.new(x, -5, y, -5)
         pickerFrame.BackgroundColor3 = Color3.fromHSV(x, 1 - y, 1)
 
-        -- Actualizar el color en tiempo real
         if callback then
             callback(pickerFrame.BackgroundColor3)
         end
@@ -609,11 +616,13 @@ function main:AddColorPicker(labelText, defaultColor, callback)
         if rainbowActive then
             local step = 0
             rainbowConnection = game:GetService("RunService").RenderStepped:Connect(function(deltaTime)
-                step = (step + deltaTime * 0.5) % 1
-                local x = math.sin(step * math.pi * 2) * 0.5 + 0.5
-                local y = math.cos(step * math.pi * 2) * 0.5 + 0.5
-                colorSelector.Position = UDim2.new(x, -5, y, -5)
-                pickerFrame.BackgroundColor3 = Color3.fromHSV(x, 1 - y, 1)
+                step = (step + deltaTime * 0.1) % 1
+                local color = Color3.fromHSV(step, 1, 1)
+                pickerFrame.BackgroundColor3 = color
+                
+                if callback then
+                    callback(color)
+                end
             end)
         else
             if rainbowConnection then
@@ -629,7 +638,7 @@ function main:AddColorPicker(labelText, defaultColor, callback)
 
     return ColorPicker
 end
-
+print("4/100")
 local UIS = game:GetService("UserInputService")
 function main:AddToggle(text, config, callback)
     local Toggle = Instance.new("TextButton")
@@ -1148,7 +1157,7 @@ end
           end
           return uitab
       end
-      
+      print("5/100")
  local capy = library:AddWindow("Silent aimbot v4", "By CapybaraScript", Enum.KeyCode.RightControl)
  
 local Main = capy:AddTab("Aimbot","")
@@ -1205,7 +1214,7 @@ ring.Thickness = 1
 ring.Color = ringColor
 ring.Filled = false
 ring.Visible = false
-
+print("6/100")
 Camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
     ring.Position = Camera.ViewportSize / 2
 end)
@@ -1256,7 +1265,7 @@ local function toggleButton()
         button.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
         ring.Visible = false
     end
-    clickSound:Play()  -- Reproducir sonido al cambiar el estado
+    clickSound:Play() 
 end
 
 local function onKeyPress(input)
@@ -1272,7 +1281,7 @@ button.MouseButton1Click:Connect(toggleButton)
 button:TweenSize(UDim2.new(0, 110, 0, 60), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.2, true)
 wait(0.2)
 button:TweenSize(UDim2.new(0, 100, 0, 50), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.2, true)
-
+print("7/100")
 local function isPointInRing(screenPosition)
     local center = ring.Position
     local distance = (screenPosition - center).Magnitude
@@ -1394,7 +1403,7 @@ local function focusOnClosestPlayerInRing()
 end
 
 RunService.RenderStepped:Connect(focusOnClosestPlayerInRing)
-
+print("8/100")
 Main:AddSeperator("AIMBOT")
 Visual:AddSeperator("VISUAL")
 Local:AddSeperator("LOCAL PLAYER")
@@ -1474,7 +1483,7 @@ local function onCharacterAdded(character)
 end
 
 player.CharacterAdded:Connect(onCharacterAdded)
-
+print("9/100")
 Local:AddToggle("Tp Walk Toggle", savedConfig.tpWalkEnabled or false, function(state)
     if state then
         tpwalking = true
@@ -2280,3 +2289,5 @@ game.StarterGui:SetCore("SendNotification", {
     Title = "The script may not work properly ", 
     Text = "I hurry to update the script."
 })
+
+print("100/100 ,lol")
