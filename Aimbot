@@ -1264,6 +1264,7 @@ local function toggleButton()
         button.Text = "OFF"
         button.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
         ring.Visible = false
+        lockedPlayer = nil
     end
     clickSound:Play() 
 end
@@ -1663,7 +1664,7 @@ local function UpdateLineScope()
                 lineScope.Circle.Position = Vector2.new(headPos.X, headPos.Y)  
                 lineScope.Circle.Radius = 150 / headPos.Z  
                 
-                local lookVector = Head.CFrame.LookVector * 6
+                local lookVector = Head.CFrame.LookVector * 5
                 local lookPos = Head.Position + lookVector  
                 local screenPosStart = Vector2.new(headPos.X, headPos.Y)
                 local screenPosEnd = Camera:WorldToViewportPoint(lookPos)
